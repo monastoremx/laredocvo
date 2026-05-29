@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Laredo CVO — Mona Store</title>
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="./manifest.json">
+
+    <!-- iOS PWA -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Laredo CVO">
+    <link rel="apple-touch-icon" href="./icons/icon-192.png">
+
+    <!-- Android / Theme -->
+    <meta name="theme-color" content="#4f46e5">
+    <meta name="mobile-web-app-capable" content="yes">
+
+    <!-- SEO básico -->
+    <meta name="description" content="Calculadora de costos Laredo CVO para Mona Store">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+    <style>
+        /* Safe area para notch/Dynamic Island en iOS */
+        body {
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+            padding-left: env(safe-area-inset-left);
+            padding-right: env(safe-area-inset-right);
+        }
+        /* Ocultar flechas en inputs numéricos */
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+        /* Splash screen color */
+        html { background-color: #f8fafc; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans p-4 md:p-8 min-h-screen">
+
+    <!-- Banner de instalación (se muestra sólo si no está instalada) -->
+    <div id="installBanner" class="hidden fixed bottom-4 left-4 right-4 z-50 bg-indigo-600 text-white rounded-2xl p-4 shadow-2xl flex items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+            <i class="fa-solid fa-mobile-screen text-2xl"></i>
+            <div>
+                <p class="font-bold text-sm">Agregar a inicio</p>
+                <p class="text-xs text-indigo-200">Úsala sin internet, como app</p>
+            </div>
+        </div>
+        <div class="flex gap-2">
+            <button id="installBtn" class="px-3 py-2 bg-white text-indigo-700 font-bold text-sm rounded-xl">Instalar</button>
+            <button id="dismissBtn" class="px-3 py-2 bg-indigo-500 text-white text-sm rounded-xl">✕</button>
+        </div>
+    </div>
+
+    <div class="max-w-7xl mx-auto space-y-6">
+        
+        <!-- Header -->
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+            <div class="flex items-center gap-3 mb-4 md:mb-0">
+                <div class="p-3 bg-indigo-600 rounded-xl text-white shadow-lg shadow-indigo-200">
+                    <i class="fa-solid fa-box-open text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold text-slate-900">Mona Store</h1>
+                    <p class="text-sm text-slate-500">Calculadora de Costos Laredo</p>
+                </div>
+            </div>
+
+            <div class="flex gap-2 w-full md:w-auto">
+                <button onclick="clearAllItems()" class="flex items-center gap-2 px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-colors font-medium text-sm">
+                    <i class="fa-solid fa-trash"></i> Limpiar
+                </button>
+                <button onclick="toggleSettings()" class="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors font-medium">
+                    <i class="fa-solid fa-gear"></i> Configuración
+                </button>
+            </div>
+        </header>
+
+        <!-- Panel de Configuración -->
+        <div id="settingsPanel" class="hidden bg-indigo-50 p-6 rounded-2xl border border-indigo-100 grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <label class="block text-sm font-semibold text-indigo-900 mb-2">Tipo de Cambio (MXN/USD)</label>
+                <div class="relative">
+                    <span class="absolute left-3 top-2.5 text-indigo-400">$</span>
+                    <input type="number" id="configTC" step="0.01" value="18.00" oninput="saveSettings(); updatePreview()" class="w-full pl-8 pr-4 py-2 rounded-lg border border-indigo-200 focus:ring-2 focus:ring-indigo-500 outline-none">
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-semibold text-indigo-900 mb-2">Comisión Tarjeta (%)</label>
+                <div class="relative">
+                    <span class="absolute left-3 top-2.5 text-indigo-400"><i class="fa-solid fa-percent text-sm"></i></span>
+                    <input type="number" id="configFee" step="0.1" value="4.0" oninput="saveSettings(); updatePreview()" class="w-full pl-9 pr-4 py-2 rounded-lg border border-indigo-200 focus:ring-2 focus:ring-indigo-500 outline-none">
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Grid -->
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+            
+            <!-- Formulario -->
+            <div class="xl:col-span-1 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                <h2 class="text-lg font-bold flex items-center gap-2 mb-6 text-slate-800">
+                    <i class="fa-solid fa-calculator text-indigo-600"></i> Nuevo Artículo
+                </h2>
+                
+                <form id="calcForm" onsubmit="saveItem(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Producto</label>
+                        <input type="text" id="prodName" placeholder="Ej. Pin Mandalorian" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all">
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Precio (USD)</label>
+                            <input type="number" id="priceUSD" step="0.01" placeholder="0.00" oninput="updatePreview()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Tax (8.25%)</label>
+                            <input type="number" id="taxUSD" step="0.01" placeholder="0.00" readonly tabindex="-1" class="w-full px-3 py-2 bg-slate-200 border border-slate-300 rounded-lg text-slate-500 cursor-not-allowed outline-none" title="Calculado automáticamente">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Ship (USD)</label>
+                            <input type="number" id="shipUSD" step="0.01" placeholder="0.00" oninput="updatePreview()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+                        </div>
+                    </div>
+
+                    <div class="p-3 bg-slate-50 rounded-lg border border-slate-100 flex justify-between items-center text-sm">
+                        <span class="text-slate-500 font-medium">Total Artículo (USD)</span>
+                        <span id="previewTotalUSD" class="font-bold text-slate-800">$0.00</span>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3 pt-2">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Envío MXN</label>
+                            <input type="number" id="envioMXN" step="0.01" placeholder="0.00" oninput="updatePreview()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Laredo CVO (19%)</label>
+                            <input type="number" id="laredoMXN" step="0.01" placeholder="0.00" readonly tabindex="-1" class="w-full px-3 py-2 bg-slate-200 border border-slate-300 rounded-lg text-slate-500 cursor-not-allowed outline-none" title="Calculado automáticamente">
+                        </div>
+                    </div>
+
+                    <div class="p-4 bg-indigo-50 rounded-lg border border-indigo-100 flex justify-between items-center">
+                        <span class="text-indigo-800 font-semibold">Costo Total Tienda</span>
+                        <span id="previewCostoTotal" class="text-xl font-bold text-indigo-700">$0.00</span>
+                    </div>
+
+                    <div class="pt-2">
+                        <label class="block text-xs font-semibold text-emerald-600 uppercase tracking-wider mb-1">Precio de Venta (MXN)</label>
+                        <input type="number" id="salePriceMXN" step="0.01" placeholder="0.00" oninput="updatePreview()" class="w-full px-3 py-3 bg-emerald-50 border border-emerald-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-emerald-900 font-bold text-lg">
+                    </div>
+
+                    <!-- Vista previa de Ganancia -->
+                    <div id="profitBox" class="hidden p-4 rounded-lg border">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-sm font-semibold opacity-80" id="profitLabel">Ganancia Estimada</span>
+                            <span id="previewMargin" class="text-xs font-bold px-2 py-1 bg-white rounded-md shadow-sm text-slate-700">Margen: 0%</span>
+                        </div>
+                        <div id="previewProfit" class="text-2xl font-black">$0.00</div>
+                        <div class="text-xs mt-1 opacity-70">
+                            Incluye deducción de <span id="previewCardFee">$0.00</span> de comisión.
+                        </div>
+                    </div>
+
+                    <button type="submit" class="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl transition-all shadow-md flex items-center justify-center gap-2 mt-4">
+                        <i class="fa-solid fa-plus"></i> Guardar Cálculo
+                    </button>
+                </form>
+            </div>
+
+            <!-- Tabla de Resultados y Resumen -->
+            <div class="xl:col-span-2 space-y-6">
+                
+                <!-- KPIs -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+                        <div class="flex items-center gap-3 mb-2">
+                            <div class="p-2 bg-blue-100 text-blue-600 rounded-lg"><i class="fa-solid fa-dollar-sign"></i></div>
+                            <h3 class="font-semibold text-slate-500 text-sm">Costo Invertido</h3>
+                        </div>
+                        <p id="kpiInvested" class="text-2xl font-bold text-slate-800">$0.00</p>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+                        <div class="flex items-center gap-3 mb-2">
+                            <div class="p-2 bg-emerald-100 text-emerald-600 rounded-lg"><i class="fa-solid fa-arrow-trend-up"></i></div>
+                            <h3 class="font-semibold text-slate-500 text-sm">Ventas Proyectadas</h3>
+                        </div>
+                        <p id="kpiSales" class="text-2xl font-bold text-slate-800">$0.00</p>
+                    </div>
+                    <div class="bg-slate-900 p-5 rounded-2xl shadow-md border border-slate-800 text-white">
+                        <div class="flex items-center gap-3 mb-2">
+                            <div class="p-2 bg-slate-800 text-emerald-400 rounded-lg"><i class="fa-solid fa-sack-dollar"></i></div>
+                            <h3 class="font-semibold text-slate-300 text-sm">Ganancia Neta Total</h3>
+                        </div>
+                        <p id="kpiProfit" class="text-2xl font-bold text-emerald-400">$0.00</p>
+                    </div>
+                </div>
+
+                <!-- Tabla -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col h-[calc(100%-8rem)] min-h-[300px]">
+                    <div class="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+                        <h3 class="font-bold text-slate-800">Cálculos Guardados</h3>
+                        <span id="itemCount" class="text-xs font-semibold text-slate-500 px-2 py-1 bg-white rounded shadow-sm">0 artículos</span>
+                    </div>
+                    
+                    <div class="overflow-x-auto p-4 flex-1">
+                        <div id="emptyState" class="h-full flex flex-col items-center justify-center text-slate-400 py-12">
+                            <i class="fa-solid fa-box-open text-4xl mb-4 opacity-20"></i>
+                            <p>No hay artículos guardados aún.</p>
+                            <p class="text-sm">Utiliza el formulario para añadir cálculos.</p>
+                        </div>
+
+                        <table id="dataTable" class="w-full text-sm text-left hidden">
+                            <thead class="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-100">
+                                <tr>
+                                    <th class="px-4 py-3">Producto</th>
+                                    <th class="px-4 py-3">Total (USD)</th>
+                                    <th class="px-4 py-3">Costo (MXN)</th>
+                                    <th class="px-4 py-3">Venta (MXN)</th>
+                                    <th class="px-4 py-3">Ganancia (MXN)</th>
+                                    <th class="px-4 py-3"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Service Worker + PWA + App Logic -->
+    <script>
+        // ── Registrar Service Worker ──────────────────────────────────
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(() => {});
+        }
+
+        // ── Install prompt (Android Chrome) ──────────────────────────
+        let deferredPrompt = null;
+        const installBanner = document.getElementById('installBanner');
+        const installBtn    = document.getElementById('installBtn');
+        const dismissBtn    = document.getElementById('dismissBtn');
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            // Solo mostrar si no está ya instalada
+            if (!window.matchMedia('(display-mode: standalone)').matches) {
+                installBanner.classList.remove('hidden');
+            }
+        });
+
+        installBtn.addEventListener('click', async () => {
+            if (!deferredPrompt) return;
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            deferredPrompt = null;
+            installBanner.classList.add('hidden');
+        });
+
+        dismissBtn.addEventListener('click', () => {
+            installBanner.classList.add('hidden');
+        });
+
+        // ── Estado Global + Persistencia ─────────────────────────────
+        let items = [];
+
+        function loadFromStorage() {
+            try {
+                const saved = localStorage.getItem('laredo_items');
+                if (saved) items = JSON.parse(saved);
+                const cfg = JSON.parse(localStorage.getItem('laredo_config') || '{}');
+                if (cfg.tc)  document.getElementById('configTC').value  = cfg.tc;
+                if (cfg.fee) document.getElementById('configFee').value = cfg.fee;
+            } catch(e) { items = []; }
+        }
+
+        function saveToStorage() {
+            localStorage.setItem('laredo_items', JSON.stringify(items));
+        }
+
+        function saveSettings() {
+            const cfg = {
+                tc:  document.getElementById('configTC').value,
+                fee: document.getElementById('configFee').value,
+            };
+            localStorage.setItem('laredo_config', JSON.stringify(cfg));
+        }
+
+        // ── Configuración ─────────────────────────────────────────────
+        const configTC      = document.getElementById('configTC');
+        const configFee     = document.getElementById('configFee');
+        const settingsPanel = document.getElementById('settingsPanel');
+
+        function toggleSettings() {
+            if (settingsPanel.classList.contains('hidden')) {
+                settingsPanel.classList.remove('hidden');
+                settingsPanel.classList.add('grid');
+            } else {
+                settingsPanel.classList.add('hidden');
+                settingsPanel.classList.remove('grid');
+            }
+        }
+
+        // ── Helpers ───────────────────────────────────────────────────
+        function formatMoney(amount, currency = 'MXN') {
+            return new Intl.NumberFormat('es-MX', { style: 'currency', currency }).format(amount || 0);
+        }
+
+        function getFloatVal(id) {
+            return parseFloat(document.getElementById(id).value) || 0;
+        }
+
+        // ── Cálculo central ───────────────────────────────────────────
+        function calculateCurrent() {
+            const tc         = parseFloat(configTC.value)  || 18;
+            const feePercent = parseFloat(configFee.value) || 4;
+            const price      = getFloatVal('priceUSD');
+            const tax        = price * 0.0825;
+            const laredoMXN  = price * tc * 0.19;
+
+            document.getElementById('taxUSD').value   = price > 0 ? tax.toFixed(2)      : '';
+            document.getElementById('laredoMXN').value = price > 0 ? laredoMXN.toFixed(2) : '';
+
+            const shipUSD      = getFloatVal('shipUSD');
+            const envioMX      = getFloatVal('envioMXN');
+            const salePrice    = getFloatVal('salePriceMXN');
+            const itemTotalUSD = price + tax + shipUSD;
+            const itemTotalMXN = itemTotalUSD * tc;
+            const totalCostMXN = itemTotalMXN + envioMX + laredoMXN;
+            const cardFee      = salePrice * (feePercent / 100);
+            const netProfit    = salePrice - totalCostMXN - cardFee;
+            const margin       = salePrice > 0 ? (netProfit / salePrice) * 100 : 0;
+
+            return { itemTotalUSD, totalCostMXN, cardFee, netProfit, margin, salePrice, tc };
+        }
+
+        // ── Vista previa en tiempo real ───────────────────────────────
+        function updatePreview() {
+            const calc = calculateCurrent();
+            document.getElementById('previewTotalUSD').innerText    = formatMoney(calc.itemTotalUSD, 'USD');
+            document.getElementById('previewCostoTotal').innerText  = formatMoney(calc.totalCostMXN);
+
+            const profitBox = document.getElementById('profitBox');
+            if (calc.salePrice > 0) {
+                profitBox.classList.remove('hidden');
+                document.getElementById('previewMargin').innerText  = `Margen: ${calc.margin.toFixed(1)}%`;
+                document.getElementById('previewProfit').innerText  = formatMoney(calc.netProfit);
+                document.getElementById('previewCardFee').innerText = formatMoney(calc.cardFee);
+                if (calc.netProfit >= 0) {
+                    profitBox.className = 'p-4 rounded-lg border bg-emerald-50 border-emerald-100';
+                    document.getElementById('previewProfit').className = 'text-2xl font-black text-emerald-700';
+                } else {
+                    profitBox.className = 'p-4 rounded-lg border bg-red-50 border-red-100';
+                    document.getElementById('previewProfit').className = 'text-2xl font-black text-red-600';
+                }
+            } else {
+                profitBox.classList.add('hidden');
+            }
+        }
+
+        // ── Guardar artículo ──────────────────────────────────────────
+        function saveItem(e) {
+            e.preventDefault();
+            const name = document.getElementById('prodName').value;
+            if (!name) return;
+            const calc = calculateCurrent();
+            items.unshift({ id: Date.now(), name, ...calc });
+            saveToStorage();
+            document.getElementById('calcForm').reset();
+            updatePreview();
+            renderApp();
+        }
+
+        // ── Eliminar artículo ─────────────────────────────────────────
+        function deleteItem(id) {
+            items = items.filter(item => item.id !== id);
+            saveToStorage();
+            renderApp();
+        }
+
+        // ── Limpiar todo ──────────────────────────────────────────────
+        function clearAllItems() {
+            if (items.length === 0) return;
+            if (!confirm('¿Borrar todos los cálculos guardados?')) return;
+            items = [];
+            saveToStorage();
+            renderApp();
+        }
+
+        // ── Renderizar tabla y KPIs ───────────────────────────────────
+        function renderApp() {
+            const tableBody  = document.getElementById('tableBody');
+            const dataTable  = document.getElementById('dataTable');
+            const emptyState = document.getElementById('emptyState');
+            const itemCount  = document.getElementById('itemCount');
+
+            itemCount.innerText = `${items.length} ${items.length === 1 ? 'artículo' : 'artículos'}`;
+
+            let tInvested = 0, tSales = 0, tProfit = 0;
+
+            if (items.length === 0) {
+                dataTable.classList.add('hidden');
+                emptyState.classList.remove('hidden');
+            } else {
+                dataTable.classList.remove('hidden');
+                emptyState.classList.add('hidden');
+                tableBody.innerHTML = '';
+                items.forEach(item => {
+                    tInvested += item.totalCostMXN;
+                    tSales    += item.salePrice;
+                    tProfit   += item.netProfit;
+                    const isPositive     = item.netProfit >= 0;
+                    const profitColorCls = isPositive ? 'text-emerald-600' : 'text-red-500';
+                    tableBody.innerHTML += `
+                        <tr class="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+                            <td class="px-4 py-4 font-medium text-slate-800">
+                                ${item.name}
+                                <div class="text-xs text-slate-400 font-normal mt-0.5">TC: $${item.tc.toFixed(2)}</div>
+                            </td>
+                            <td class="px-4 py-4 text-slate-600">${formatMoney(item.itemTotalUSD, 'USD')}</td>
+                            <td class="px-4 py-4 font-medium text-indigo-700">${formatMoney(item.totalCostMXN)}</td>
+                            <td class="px-4 py-4 font-bold text-slate-800">${formatMoney(item.salePrice)}</td>
+                            <td class="px-4 py-4">
+                                <span class="font-bold ${profitColorCls}">${formatMoney(item.netProfit)}</span>
+                                <span class="text-xs text-slate-400 ml-2">(${item.margin.toFixed(0)}%)</span>
+                            </td>
+                            <td class="px-4 py-4 text-right">
+                                <button onclick="deleteItem(${item.id})" class="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                            </td>
+                        </tr>`;
+                });
+            }
+
+            document.getElementById('kpiInvested').innerText = formatMoney(tInvested);
+            document.getElementById('kpiSales').innerText    = formatMoney(tSales);
+            document.getElementById('kpiProfit').innerText   = formatMoney(tProfit);
+        }
+
+        // ── Init ──────────────────────────────────────────────────────
+        loadFromStorage();
+        updatePreview();
+        renderApp();
+    </script>
+</body>
+</html>
